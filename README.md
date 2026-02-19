@@ -215,13 +215,6 @@ After encoding an image to `z₀ ∈ ℝ^{16×32×32}`, the app provides two vie
 5. **Decode** — pass `z(t_final)` through `from_latent` → decoder to reconstruct the predicted future image
 6. **Analyze** — visualize the full ODE trajectory and the latent structure of `z₀`
 
-<br/>
-
-## ✦ License
-
-This project is licensed under the **MIT License** — see [`LICENSE`](LICENSE) for details.
-
-<br/>
 
 ---
 
