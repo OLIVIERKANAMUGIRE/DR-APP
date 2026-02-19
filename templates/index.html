@@ -3,63 +3,470 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Latent ODE Autoencoder</title>
+  <title>Latent ODE — DR Progression</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
   <style>
+    /* ── Reset & base ────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #080812;
+      --surface:   #0f0f20;
+      --surface2:  #16162b;
+      --border:    #252540;
+      --accent:    #7c6af7;
+      --accent2:   #f76ac8;
+      --text:      #e8e8ff;
+      --muted:     #7070a0;
+      --success:   #5af0c0;
+      --mono:      'DM Mono', monospace;
+      --sans:      'Syne', sans-serif;
+    }
+
+    html { scroll-behavior: smooth; }
+
     body {
-      font-family: 'Arial', sans-serif;
-      margin: 0;
-      padding: 0;
-      background: #f5f5f5;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
-      min-height: 100vh;
+      padding-bottom: 80px;
     }
 
-    h1 { margin-top: 30px; color: #333; }
-    form { margin: 20px 0; display: flex; flex-direction: column; align-items: center; }
-    input[type="file"] { padding: 10px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #ccc; cursor: pointer; }
-    button { padding: 10px 25px; background: #667eea; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; transition: background 0.3s; }
-    button:hover { background: #5563c1; }
+    /* ── Header ─────────────────────────────────────────── */
+    header {
+      width: 100%;
+      padding: 40px 40px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      position: relative;
+      overflow: hidden;
+    }
+    header::before {
+      content: '';
+      position: absolute;
+      top: -80px; left: 50%;
+      transform: translateX(-50%);
+      width: 600px; height: 200px;
+      background: radial-gradient(ellipse, rgba(124,106,247,0.18) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .tag {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 2px;
+      color: var(--accent);
+      text-transform: uppercase;
+      background: rgba(124,106,247,0.1);
+      border: 1px solid rgba(124,106,247,0.3);
+      padding: 3px 10px;
+      border-radius: 20px;
+    }
+    h1 {
+      font-size: clamp(22px, 4vw, 36px);
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #e8e8ff 30%, #7c6af7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .subtitle {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--muted);
+      letter-spacing: 0.5px;
+    }
 
-    .images-container { display: flex; gap: 40px; margin-top: 30px; flex-wrap: wrap; justify-content: center; }
-    .image-box { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; }
-    .image-box img { max-width: 250px; border-radius: 8px; margin-top: 10px; }
+    /* ── Upload card ─────────────────────────────────────── */
+    .upload-card {
+      margin-top: 36px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px 36px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      width: min(520px, 90vw);
+      position: relative;
+    }
+    .upload-card::before {
+      content: '';
+      position: absolute;
+      inset: -1px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, rgba(124,106,247,0.4), transparent 60%);
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events: none;
+    }
+    .upload-label {
+      font-size: 13px;
+      font-family: var(--mono);
+      color: var(--muted);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .file-row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      width: 100%;
+    }
+    input[type="file"] {
+      flex: 1;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--muted);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    input[type="file"]:hover { border-color: var(--accent); }
+    input[type="file"]::file-selector-button {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 5px;
+      font-family: var(--mono);
+      font-size: 11px;
+      cursor: pointer;
+      margin-right: 10px;
+    }
+    .btn-generate {
+      padding: 12px 32px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-family: var(--sans);
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.15s;
+      white-space: nowrap;
+    }
+    .btn-generate:hover { opacity: 0.88; transform: translateY(-1px); }
+    .btn-generate:active { transform: translateY(0); }
 
-    #loading { display:none; margin-top:10px; font-weight:bold; color:#667eea; }
+    /* ── Loading ─────────────────────────────────────────── */
+    #loading {
+      display: none;
+      margin-top: 8px;
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--accent);
+      letter-spacing: 1px;
+    }
+    #loading::before { content: '⬡ '; animation: spin 1s linear infinite; display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
-    @media(max-width: 600px) { .images-container { flex-direction: column; gap: 20px; } }
+    /* ── Results wrapper ─────────────────────────────────── */
+    .results-wrapper {
+      margin-top: 48px;
+      width: min(1100px, 94vw);
+      animation: fadeUp 0.5s ease both;
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Tabs ────────────────────────────────────────────── */
+    .tabs-nav {
+      display: flex;
+      gap: 4px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0;
+      margin-bottom: 32px;
+    }
+    .tab-btn {
+      font-family: var(--mono);
+      font-size: 12px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--muted);
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      padding: 10px 20px;
+      cursor: pointer;
+      transition: color 0.2s, border-color 0.2s;
+      margin-bottom: -1px;
+    }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── Tab 1: Reconstruction ───────────────────────────── */
+    .recon-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+    @media (max-width: 680px) { .recon-grid { grid-template-columns: 1fr; } }
+
+    .img-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    .img-card-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .dot { width: 8px; height: 8px; border-radius: 50%; }
+    .dot-input  { background: var(--success); }
+    .dot-output { background: var(--accent2); }
+    .img-card-header span {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .img-card img {
+      width: 100%;
+      display: block;
+    }
+
+    /* ── Tab 2: Progression ──────────────────────────────── */
+    .progression-strip {
+      display: flex;
+      gap: 16px;
+      overflow-x: auto;
+      padding-bottom: 12px;
+      scrollbar-color: var(--accent) var(--surface2);
+    }
+    .progression-strip::-webkit-scrollbar { height: 6px; }
+    .progression-strip::-webkit-scrollbar-track { background: var(--surface2); border-radius: 3px; }
+    .progression-strip::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 3px; }
+
+    .prog-frame {
+      flex: 0 0 auto;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .prog-frame:hover { border-color: var(--accent); transform: translateY(-3px); }
+    .prog-frame img { width: 200px; display: block; }
+    .prog-frame-label {
+      padding: 8px 12px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      text-align: center;
+      border-top: 1px solid var(--border);
+    }
+    .prog-frame:last-child { border-color: var(--accent2); }
+    .prog-frame:last-child .prog-frame-label { color: var(--accent2); }
+
+    .prog-arrow {
+      display: flex;
+      align-items: center;
+      color: var(--border);
+      font-size: 20px;
+      flex: 0 0 auto;
+      align-self: center;
+    }
+
+    .section-label {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+
+    /* ── Tab 3: Latent Space ─────────────────────────────── */
+    .latent-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+    @media (max-width: 780px) { .latent-grid { grid-template-columns: 1fr; } }
+
+    .analysis-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    .analysis-card-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .analysis-card img {
+      width: 100%;
+      display: block;
+    }
+    .stat-row {
+      display: flex;
+      gap: 24px;
+      padding: 12px 16px;
+      border-top: 1px solid var(--border);
+    }
+    .stat {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .stat-val {
+      font-family: var(--mono);
+      font-size: 18px;
+      font-weight: 500;
+      color: var(--accent);
+    }
+    .stat-desc {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 0.5px;
+    }
   </style>
 </head>
 <body>
-  <h1>Latent ODE Autoencoder</h1>
-  <h2 class="text-center">Predicting the Future of Diabetic Retinopathy</h2>
 
-  <form id="upload-form" action="/predict" method="POST" enctype="multipart/form-data">
-    <input type="file" name="imagefile" accept="image/*" required>
-    <button type="submit">Generate</button>
-  </form>
+  <header>
+    <span class="tag">Deep Learning · Medical Imaging</span>
+    <h1>Latent ODE Autoencoder</h1>
+    <p class="subtitle">Predicting the Future of Diabetic Retinopathy</p>
+  </header>
 
-  <div id="loading">⏳ Processing... Please wait</div>
+  <div class="upload-card">
+    <span class="upload-label">Upload Fundus Image</span>
+    <form id="upload-form" action="/predict" method="POST" enctype="multipart/form-data">
+      <div class="file-row">
+        <input type="file" name="imagefile" accept="image/*" required>
+        <button type="submit" class="btn-generate">Generate</button>
+      </div>
+    </form>
+    <div id="loading">Processing — please wait</div>
+  </div>
 
   {% if processed_image and reconstructed_image %}
-  <div class="images-container">
-    <div class="image-box">
-      <h3>Processed Input</h3>
-      <img src="data:image/png;base64,{{ processed_image }}" alt="Processed">
+  <div class="results-wrapper">
+
+    <!-- Tab nav -->
+    <nav class="tabs-nav">
+      <button class="tab-btn active" data-tab="tab-recon">Reconstruction</button>
+      <button class="tab-btn" data-tab="tab-progression">ODE Progression</button>
+      <button class="tab-btn" data-tab="tab-latent">Latent Space</button>
+    </nav>
+
+    <!-- ── TAB 1: Reconstruction ── -->
+    <div class="tab-panel active" id="tab-recon">
+      <div class="recon-grid">
+        <div class="img-card">
+          <div class="img-card-header">
+            <div class="dot dot-input"></div>
+            <span>Processed Input  ·  t = 0.00</span>
+          </div>
+          <img src="data:image/png;base64,{{ processed_image }}" alt="Input">
+        </div>
+        <div class="img-card">
+          <div class="img-card-header">
+            <div class="dot dot-output"></div>
+            <span>ODE Prediction  ·  t = 0.50</span>
+          </div>
+          <img src="data:image/png;base64,{{ reconstructed_image }}" alt="Reconstructed">
+        </div>
+      </div>
     </div>
-    <div class="image-box">
-      <h3>Reconstructed Output</h3>
-      <img src="data:image/png;base64,{{ reconstructed_image }}" alt="Reconstructed">
+
+    <!-- ── TAB 2: Progression ── -->
+    <div class="tab-panel" id="tab-progression">
+      <p class="section-label">ODE trajectory — decoded at each time step</p>
+      <div class="progression-strip">
+        {% for img_b64, label in progression_data %}
+          <div class="prog-frame">
+            <img src="data:image/png;base64,{{ img_b64 }}" alt="{{ label }}">
+            <div class="prog-frame-label">{{ label }}</div>
+          </div>
+          {% if not loop.last %}
+            <div class="prog-arrow">›</div>
+          {% endif %}
+        {% endfor %}
+      </div>
     </div>
+
+    <!-- ── TAB 3: Latent Space ── -->
+    <div class="tab-panel" id="tab-latent">
+      <div class="latent-grid">
+
+        <div class="analysis-card">
+          <div class="analysis-card-header">PCA of z₀  ·  spatial activations</div>
+          <img src="data:image/png;base64,{{ pca_plot }}" alt="PCA">
+          <div class="stat-row">
+            <div class="stat">
+              <span class="stat-val">{{ pc1_var }}%</span>
+              <span class="stat-desc">PC 1 variance</span>
+            </div>
+            <div class="stat">
+              <span class="stat-val">{{ pc2_var }}%</span>
+              <span class="stat-desc">PC 2 variance</span>
+            </div>
+            <div class="stat">
+              <span class="stat-val">{{ (pc1_var + pc2_var)|round(1) }}%</span>
+              <span class="stat-desc">Total explained</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="analysis-card">
+          <div class="analysis-card-header">Channel activations  ·  z₀ heatmaps</div>
+          <img src="data:image/png;base64,{{ heatmap_plot }}" alt="Channel heatmaps">
+        </div>
+
+      </div>
+    </div>
+
   </div>
   {% endif %}
 
   <script>
-    const form = document.getElementById("upload-form");
-    const loading = document.getElementById("loading");
-    form.addEventListener("submit", function() {
-        loading.style.display = "block";
+    // Loading indicator
+    document.getElementById("upload-form").addEventListener("submit", () => {
+      document.getElementById("loading").style.display = "block";
+    });
+
+    // Tab switching
+    document.querySelectorAll(".tab-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+        document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+        btn.classList.add("active");
+        document.getElementById(btn.dataset.tab).classList.add("active");
+      });
     });
   </script>
 </body>
